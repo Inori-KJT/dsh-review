@@ -1,0 +1,51 @@
+# dsh-review bundle layer
+#
+# 两件事：
+#   1 挂载插件入口；
+#   2 定义 finder 与 verifier 两个只读预设——无 shell、无网络、不能写文件。
+#
+# 注意 T4 阶段的状态：下面两个预设在 T4 实测时尚未启用，实际验证用的是 DSH 自带的
+# `standard` 预设加 restrict 收窄工具集（T0b 已证明可用）。换成这两个预设是纯配置
+# 改动，等 preset 的插件清单在完整插件里逐个验证后再切。原因写在这里而不是报告末尾，
+# 因为读到这里的人最需要知道这件事。
+- insert:
+    - id: dsh-review
+      name: dsh-review
+
+    - id: dsh-review-finder-preset
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: dsh-review-finder
+        name: dsh-review 检查者
+        description: dsh-review 的检查会话专用，不供手动选择。只读，无 shell、无网络、不能写文件。
+        order: 91
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: You are a read-only code reviewer powered by the {{model}} model.
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+          - id: tool-fs-search
+            name: '@deepseek-ai/dsh-tool-fs-search'
+            config:
+              sampleOverCapGlobResults: false
+
+    - id: dsh-review-verifier-preset
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: dsh-review-verifier
+        name: dsh-review 核实者
+        description: dsh-review 的核实会话专用，不供手动选择。只读，无 shell、无网络、不能写文件。
+        order: 92
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: You are a skeptical verifier powered by the {{model}} model.
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+          - id: tool-fs-search
+            name: '@deepseek-ai/dsh-tool-fs-search'
+            config:
+              sampleOverCapGlobResults: false

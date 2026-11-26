@@ -1,0 +1,29 @@
+{
+  "name": "dsh-review",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "代码评审引擎（T9 阶段：常驻插件与决策包）",
+  "main": "index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./t4": "./spike/t4/index.js",
+    "./t5": "./spike/t5/index.js",
+    "./t6": "./spike/t6/index.js",
+    "./t8": "./spike/t8/index.js",
+    "./plugin": "./index.mjs",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "node --test tests/core.test.ts tests/purity.test.ts tests/pipeline.test.ts tests/scheduler.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.7",
+    "typescript": "6.0.3"
+  }
+}
