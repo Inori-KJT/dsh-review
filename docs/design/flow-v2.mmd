@@ -1,0 +1,163 @@
+%% U=用户 SA=superagent GH=代码平台(GitCode) DR=dsh-review
+flowchart TD
+  subgraph P0["P0 一次性准备（先在测试仓验证，再上真实仓）"]
+    a0["U：在测试仓验证门禁<br/><small>状态、流水线、审批重置</small><br/><b>⚠ 待验证 G</b>"]
+    a1["SA：给 SA 打补丁<br/><small>机器人名单、提示词</small><br/><b>⚠ 待完善 W4</b>"]
+    a3["DR：部署 DR<br/><small>接 GH 适配器与 SA 入口</small>"]
+    a2["GH：配门禁与合并方式<br/><small>流水线查 DR，半线性合并</small><br/><b>⚠ 待验证 G</b>"]
+  end
+  subgraph P1["P1 需求进入（SA 的工作路径）"]
+    b1["U：提需求<br/><small>在 GH 或群里 @SA</small>"]
+    b2("SA：收到消息<br/><small>Source 转成 Trigger</small>")
+    b3("SA：准入与研判<br/><small>规则门槛 + 模型判断</small><br/><b>⚠ 待调优 S</b>")
+    b4["SA：建工单<br/><small>独立目录与执行器会话</small>"]
+  end
+  subgraph P2["P2 开发"]
+    c1["SA：改代码、跑测试<br/><small>附上测试输出</small>"]
+    c2["SA：本地提交<br/><small>先不推送</small>"]
+  end
+  subgraph P3["P3 提交前自审（建议模式，不阻塞开 PR）"]
+    d1("SA：打包提交并调用 DR<br/><small>git bundle + preflight</small><br/><b>⚠ 待完善 W1</b>")
+    d2("DR：限次、只导入这个包<br/><small>不读调用方给的任意路径</small><br/><b>⚠ 待完善 W1</b>")
+    d3("DR：Quick 流水线<br/><small>1 个审查 + 1 个核实会话</small><br/><b>⚠ 待修 F1–F4</b>")
+    d4("DR：脱敏后返回 JSON<br/><small>不写 PR，不触发事件</small>")
+    d5{"SA：有 Important？<br/><small>限流或超时：记录后继续</small>"}
+    d6["SA：作者修改并重新提交<br/><small>回到开发</small>"]
+  end
+  subgraph P4["P4 开 PR（人写的 PR 也从这里进入）"]
+    e0["U：人开 PR 或推送<br/><small>人写的代码同样进 P5</small>"]
+    e1["SA：推送分支、开 PR<br/><small>描述里写清意图</small>"]
+    e3("SA：绑定 PR 并订阅<br/><small>绑定后补读已有发现</small><br/><b>⚠ 待完善 竞态</b>")
+    e2["GH：PR 创建或更新<br/><small>产生新 head</small>"]
+  end
+  subgraph P5["P5 正式评审（DR 自己发现新版本，无需任何人通知）"]
+    f1["GH：PR 有新 head<br/><small>所有改代码的回路都回到这里</small>"]
+    f2("DR：发现新版本<br/><small>先轮询，以后加 Webhook</small>")
+    f3b["GH：跳过<br/><small>同一版本不重复审</small>"]
+    f3{"DR：这一版审过了？<br/><small>仓库 + PR + base + head</small>"}
+    f4("DR：准备代码<br/><small>fetch、只读副本、base 规则</small><br/><b>⚠ 待修 F2</b>")
+    f5("DR：找问题<br/><small>2 个会话，带判据与 diff</small><br/><b>⚠ 待修 F1</b>")
+    f6("DR：核实<br/><small>按编号对号，先试推翻</small><br/><b>⚠ 待修 F3 F4</b>")
+    f7("DR：失败处理<br/><small>重试 2 次，仍失败记执行失败</small><br/><b>⚠ 待完善 状态</b>")
+    f8("DR：归类、过滤、定阈值<br/><small>一票可展示，两票才阻断</small><br/><b>⚠ 待完善 状态</b>")
+    f9u("U：裁决扣下项<br/><small>须写理由，期间显示待人工</small>")
+    f9("DR：闸门<br/><small>安全类、改规则：扣下</small>")
+    f10("DR：生成审查记录<br/><small>绑定 head，区分四种状态</small><br/><b>⚠ 待完善 状态</b>")
+    f11("DR：脱敏、发布<br/><small>评论 + 摘要 + 状态说明</small><br/><b>⚠ 待完善 W3</b>")
+    f12["GH：PR 上可见结论<br/><small>门禁凭 DR 记录判断</small>"]
+    f13{"GH：有待修，且属 SA 工单？"}
+  end
+  subgraph P6["P6 修复循环（SA 处理机器人发现）"]
+    g1("SA：收到通知<br/><small>认作机器人，不当人的指令</small><br/><b>⚠ 待完善 W4</b>")
+    g2("SA：读结构化发现<br/><small>核对仓库、PR、head、授权</small><br/><b>⚠ 待完善 W2</b>")
+    g3{"SA：机器人修复 ≤ 3 轮？"}
+    g4["SA：逐条处理<br/><small>修掉，或在线程写理由</small>"]
+    g5{"SA：改了代码？"}
+    g6["SA：推送修复<br/><small>新 head，回 P5</small>"]
+    g7("GH：理由留在线程")
+    g8("DR：转为待人工裁决<br/><small>不会自动解除阻断</small><br/><b>⚠ 待完善 P1</b>")
+  end
+  subgraph P7["P7 人工审阅与审批（所有需要人的情况都汇到这里）"]
+    h1["U：查看 PR、状态与证据<br/><small>PR 页面与面板</small>"]
+    h2{"U：需要改代码？"}
+    h4("GH：人改并推送，或 @SA<br/><small>人推送不受轮次限制</small>")
+    h5("U：裁决发现，写理由<br/><small>或在面板点重新评审</small>")
+    h6["SA：按人的意见修<br/><small>人的优先于机器人</small>"]
+    h7("DR：重算审查记录<br/><small>已裁决的不再阻断</small><br/><b>⚠ 待完善 P1</b>")
+    h8{"GH：仍有阻断？"}
+    h9["U：在 GH 审批当前 head"]
+  end
+  subgraph P8["P8 合并"]
+    i1{"GH：流水线门禁通过？<br/><small>向 DR 查当前 head 记录</small><br/><b>⚠ 待验证 G</b>"}
+    i3["SA：变基、解决冲突<br/><small>作者负责，人写的由人做</small>"]
+    i2{"GH：基于最新主干？<br/><small>半线性合并模式</small><br/><b>⚠ 待验证 G</b>"}
+    i4{"GH：审批在当前 head 后？<br/><b>⚠ 待验证 G</b>"}
+    i5["GH：合并<br/><small>平台或人执行，DR 无权</small>"]
+    i6("DR：记录合并版本<br/><small>供追溯与评测</small>")
+    i7("SA：工单随 PR 结束<br/><small>之后机器人消息不唤醒</small>")
+    i8[/"DR：V2 集成审查<br/><small>合并候选版本（未来）</small><br/><b>⚠ 未来 V2</b>"/]
+  end
+  subgraph P9["P9 持续改进（与单个 PR 无关，持续进行）"]
+    j1("DR：处置与指标入库<br/><small>检出、误报、人工时间、成本</small>")
+    j2("DR：评测集回归<br/><small>缺陷集、干净集、注入集</small><br/><b>⚠ 待完善 T8</b>")
+    j3["U：批准新配置<br/><small>各项指标都过底线才上线</small>"]
+  end
+  a0 --> a2
+  b1 --> b2
+  b2 --> b3
+  b3 -->|接单| b4
+  b4 --> c1
+  c1 --> c2
+  c2 --> d1
+  d1 -->|HTTP| d2
+  d2 --> d3
+  d3 --> d4
+  d4 --> d5
+  d5 -->|是| d6
+  d6 --> c1
+  d5 -->|否| e1
+  e1 --> e2
+  e1 --> e3
+  e0 --> e2
+  e3 -->|已有发现| g2
+  e2 --> f1
+  f1 --> f2
+  f2 --> f3
+  f3 -->|是| f3b
+  f3 -->|否| f4
+  f4 --> f5
+  f5 --> f6
+  f6 --> f7
+  f7 --> f8
+  f8 --> f9
+  f9 -->|有扣下| f9u
+  f9 --> f10
+  f9u --> f10
+  f10 --> f11
+  f11 --> f12
+  f12 --> f13
+  f13 -->|是| g1
+  f13 -->|否：交给人| h1
+  g1 --> g2
+  g2 --> g3
+  g3 -->|是| g4
+  g3 -->|否：转人| h1
+  g4 --> g5
+  g5 -->|是| g6
+  g5 -->|否| g7
+  g6 --> f1
+  g7 --> g8
+  g8 --> h1
+  h1 --> h2
+  h2 -->|是| h4
+  h2 -->|否| h5
+  h4 -->|委派| h6
+  h4 -->|人推送| f1
+  h6 --> f1
+  h5 --> h7
+  h7 --> h8
+  h8 -->|是| h1
+  h8 -->|否| h9
+  h9 --> i1
+  i1 -->|否| h1
+  i1 -->|是| i2
+  i2 -->|否| i3
+  i3 -->|全量重审| f1
+  i2 -->|是| i4
+  i4 -->|否| h9
+  i4 -->|是| i5
+  i5 --> i6
+  i5 --> i7
+  j1 --> j2
+  j2 --> j3
+  classDef main fill:#F1EFE8,stroke:#5F5E5A,color:#2C2C2A
+  classDef sub fill:#E1F5EE,stroke:#0F6E56,color:#085041
+  classDef decision fill:#FAEEDA,stroke:#854F0B,color:#633806
+  classDef jump fill:#EEEDFE,stroke:#534AB7,color:#3C3489
+  classDef future fill:#FFFFFF,stroke:#888780,color:#5F5E5A,stroke-dasharray:5 3
+  classDef todo stroke:#E24B4A,stroke-width:2px
+  class a0,a1,a3,a2,b1,b4,c1,c2,d6,e0,e1,e2,f1,f3b,f12,g4,g6,h1,h6,h9,i3,i5,j3 main
+  class b2,b3,d1,d2,d3,d4,e3,f2,f4,f5,f6,f7,f8,f9u,f9,f10,f11,g1,g2,g7,g8,h4,h5,h7,i6,i7,j1,j2 sub
+  class d5,f3,f13,g3,g5,h2,h8,i1,i2,i4 decision
+  class i8 future
+  class a0,a1,a2,b3,d1,d2,d3,e3,f4,f5,f6,f7,f8,f10,f11,g1,g2,g8,h7,i1,i2,i4,i8,j2 todo
